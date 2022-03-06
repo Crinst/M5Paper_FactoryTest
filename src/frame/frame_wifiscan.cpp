@@ -2,7 +2,7 @@
 #include "frame_wifipassword.h"
 #include <WiFi.h>
 
-#define MAX_BTN_NUM     14
+#define MAX_BTN_NUM     12
 #define MAX_WIFI_NUM    (MAX_BTN_NUM - 1)
 bool _update_flag = false;
 EPDGUI_Button *_connect_key = NULL;
@@ -50,7 +50,7 @@ Frame_WifiScan::Frame_WifiScan(void)
         _key_wifi[i]->AddArgs(EPDGUI_Button::EVENT_RELEASED, 1, (void*)(&_is_run));
         _key_wifi[i]->Bind(EPDGUI_Button::EVENT_RELEASED, key_wifi_cb);
     }
- 
+
     _language = GetLanguage();
     if(_language == LANGUAGE_JA)
     {
@@ -114,7 +114,6 @@ void Frame_WifiScan::DrawItem(EPDGUI_Button *btn, String ssid, int rssi)
 
 int Frame_WifiScan::run()
 {
-    Frame_Base::run();
     if(_connect)
     {
         _connect = false;
@@ -142,7 +141,7 @@ int Frame_WifiScan::scan()
         M5.EPD.UpdateFull(UPDATE_MODE_GC16);
     }
     _scan_count++;
-    
+
     int wifi_num;
     while(1)
     {
@@ -159,7 +158,7 @@ int Frame_WifiScan::scan()
         for(int i = 0; i < wifi_num; i++)
         {
             String ssid = WiFi.SSID(i);
-            
+
             if(ssid == _connect_ssid)
             {
                 connect_wifi_idx = i;
@@ -216,7 +215,7 @@ int Frame_WifiScan::scan()
 
         cnt++;
     }
-    
+
     _key_wifi[wifi_num]->SetCustomString("_$refresh$_");
     _key_wifi[wifi_num]->SetHide(false);
     _key_wifi[wifi_num]->CanvasNormal()->fillCanvas(0);
@@ -302,7 +301,7 @@ void Frame_WifiScan::Connect()
     }
 
     _connect_key->CanvasNormal()->pushImage(532 - 15 - 32, 14, 32, 32, ImageResource_item_icon_success_32x32);
-    
+
     _key_wifi[0]->SetEnable(false);
     _key_wifi[0]->SetHide(false);
     if(_connect_key != _key_wifi[0])
@@ -327,7 +326,7 @@ void Frame_WifiScan::SetConnected(String ssid, int rssi)
     for(int i = 1; i < MAX_BTN_NUM; i++)
     {
         _key_wifi[i]->SetPos(_key_wifi[i]->getX(), _key_wifi[i]->getY() + 32);
-    }    
+    }
     _key_wifi[0]->SetEnable(false);
     _key_wifi[0]->SetHide(false);
     _connected = 1;
@@ -369,6 +368,6 @@ int Frame_WifiScan::init(epdgui_args_vector_t &args)
         _connect = false;
     }
     EPDGUI_AddObject(_key_exit);
-    
+
     return 3;
 }

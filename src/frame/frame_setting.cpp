@@ -9,7 +9,16 @@ const uint16_t kTimeZoneY = 520;
 
 void key_shutdown_cb(epdgui_args_vector_t &args)
 {
-    Shutdown();
+    M5.EPD.WriteFullGram4bpp(GetWallpaper());
+    M5.EPD.UpdateFull(UPDATE_MODE_GC16);
+    M5.EPD.UpdateFull(UPDATE_MODE_GC16);
+    SaveSetting();
+    delay(600);
+    M5.disableEPDPower();
+    M5.disableEXTPower();
+    M5.disableMainPower();
+    esp_deep_sleep_start();
+    while(1);
 }
 
 void key_restart_cb(epdgui_args_vector_t &args)
@@ -56,6 +65,14 @@ void key_synctime_cb(epdgui_args_vector_t &args)
     info.setTextColor(0);
     info.setTextDatum(CC_DATUM);
     uint8_t language = GetLanguage();
+
+    // check Wifi settings and try to connect to last known AP
+    if (!SetWifiConnection()){
+        
+        info.drawString("WLAN cannot connect", 150, 55);
+        return;
+    }
+
     if(WiFi.status() != WL_CONNECTED)
     {
         if(language == LANGUAGE_JA)

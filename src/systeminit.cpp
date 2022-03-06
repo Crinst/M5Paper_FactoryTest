@@ -6,8 +6,6 @@
 #include "resources/binaryttf.h"
 #include <WiFi.h>
 
-M5EPD_Canvas _initcanvas(&M5.EPD);
-
 QueueHandle_t xQueue_Info = xQueueCreate(20, sizeof(uint32_t));
 
 void WaitForUser(void)
@@ -21,33 +19,6 @@ void WaitForUser(void)
             SysInit_UpdateInfo("$RESUME");
             return;
         }
-    }
-}
-
-void Screen_Test(void) {
-    Serial.println("Start Screen Life Test...");
-    _initcanvas.createCanvas(540, 960);
-    _initcanvas.setTextSize(4);
-    delay(1000);
-    float min =0;
-    while (1)
-    {
-        for(uint8_t pos=0; pos<2; pos++) {
-            for(uint8_t index=0; index<16; index++) {
-                _initcanvas.fillRect(0, index*60, 540, 60, index);
-            }
-            int possition = random(960);
-            _initcanvas.drawString("Test Time: "+String(min)+ "min",20, possition);
-            _initcanvas.pushCanvas(0,0,UPDATE_MODE_GC16);
-            delay(10000);
-            for(uint8_t index=0; index<16; index++) {
-                _initcanvas.fillRect(0, index*60, 540, 60, (15-index));
-            }
-            _initcanvas.drawString("Test Time: "+String(min)+ "min",20, possition);
-            _initcanvas.pushCanvas(0,0,UPDATE_MODE_GC16);
-            delay(10000);
-        }
-        min+=1;
     }
 }
 
@@ -77,17 +48,12 @@ void SysInit_Start(void)
     M5.EPD.SetRotation(M5EPD_Driver::ROTATE_90);
     M5.TP.SetRotation(GT911::ROTATE_90);
 
-    if (!digitalRead(39)){
-        delay(10);
-        if (!digitalRead(39))
-        {
-            Screen_Test();
-        }
-    }
-
     disableCore0WDT();
+    Serial.print("SysInit - load - task - create");
     xTaskCreatePinnedToCore(SysInit_Loading, "SysInit_Loading", 4096, NULL, 1, NULL, 0);
     // SysInit_UpdateInfo("Initializing SD card...");
+
+    Serial.print("SysInit - SD init");
     bool is_factory_test;
     SPI.begin(14, 13, 12, 4);
     ret = SD.begin(4, SPI, 20000000);
@@ -95,6 +61,7 @@ void SysInit_Start(void)
     {
         is_factory_test = true;
         SetInitStatus(0, 0);
+        Serial.print("[ERROR] Failed to initialize SD card.");
         // log_e("Failed to initialize SD card.");
         // SysInit_UpdateInfo("[ERROR] Failed to initialize SD card.");
         // WaitForUser();
@@ -115,7 +82,8 @@ void SysInit_Start(void)
 
     M5.BatteryADCBegin();
     LoadSetting();
-    
+
+    M5EPD_Canvas _initcanvas(&M5.EPD);
     if((!is_factory_test) && SD.exists("/font.ttf"))
     {
         _initcanvas.loadFont("/font.ttf", SD);
@@ -140,10 +108,39 @@ void SysInit_Start(void)
 
     _initcanvas.createRender(26, 128);
 
+    //is_factory_test = false;
+
+    //Serial.print("Last frame value: ");
+    Serial.printf("Last frame %d\n", GetGlobalLastFrame);
+    //Serial.print(GetGlobalLastFrame);
+
     Frame_Main *frame_main = new Frame_Main();
     EPDGUI_PushFrame(frame_main);
     Frame_FactoryTest *frame_factorytest = new Frame_FactoryTest();
     EPDGUI_AddFrame("Frame_FactoryTest", frame_factorytest);
+
+    // ID 8 is for weather
+    /*
+    if(GetGlobalLastFrame() == 8)
+    {
+        Frame_Weather *frame_weather = new Frame_Weather();
+        EPDGUI_PushFrame(frame_weather);
+        //EPDGUI_AddFrame("Frame_Weather", frame_weather);
+    }
+    else
+    {
+        Frame_Main *frame_main = new Frame_Main();
+        EPDGUI_PushFrame(frame_main);
+        Frame_FactoryTest *frame_factorytest = new Frame_FactoryTest();
+        EPDGUI_AddFrame("Frame_FactoryTest", frame_factorytest);
+    }
+    */
+
+    Serial.print("Factory test YN-");
+    Serial.print(is_factory_test);
+    if(!is_factory_test)
+        Serial.print("YN");
+
     if(!is_factory_test)
     {
         Frame_Setting *frame_setting = new Frame_Setting();
@@ -165,8 +162,20 @@ void SysInit_Start(void)
         Frame_Home *frame_home = new Frame_Home();
         EPDGUI_AddFrame("Frame_Home", frame_home);
 
+        Frame_Weather *frame_weather = new Frame_Weather();
+        EPDGUI_AddFrame("Frame_Weather", frame_weather);
+
+        // check Wifi settings and try to connect to last known AP
+        SysInit_UpdateInfo("Connect to last known AP ... ");
+        if (!SetWifiConnection()){
+            
+            SysInit_UpdateInfo("ERROR cannot connect to last known AP ... ");
+        }
+
+        /*
         if(isWiFiConfiged())
         {
+
             SysInit_UpdateInfo("Connect to " + GetWifiSSID() + "...");
             WiFi.begin(GetWifiSSID().c_str(), GetWifiPassword().c_str());
             uint32_t t = millis();
@@ -180,28 +189,46 @@ void SysInit_Start(void)
                 if(WiFi.status() == WL_CONNECTED)
                 {
                     frame_wifiscan->SetConnected(GetWifiSSID(), WiFi.RSSI());
+                    Serial.println("WIFI CONNECT: OK");
                     break;
                 }
+                else{
+                  //Serial.println("WIFI CONNECT: NOK");
+                }
+
             }
         }
+        else{
+          SysInit_UpdateInfo("WIFI not configured. SSID: " + GetWifiSSID());
+
+        }
+        */
+
     }
-    
+
+    GetCurrentIpAddress();
+    //GetLatestWeatherInformationJson();
+    WiFi.setAutoConnect(1);
+    GetCurrentPositionBasedOnIpAddress();
+
     log_d("done");
 
+
     while(uxQueueMessagesWaiting(xQueue_Info));
-    
+
     if(!is_factory_test)
     {
         SysInit_UpdateInfo("$OK");
     }
-    
+
     Serial.println("OK");
 
     delay(500);
 }
 
 void SysInit_Loading(void *pvParameters)
-{
+{   
+    Serial.print("SysInit - load - task - start");
     const uint16_t kPosy = 548;
     const uint8_t *kLD[] = {
         ImageResource_loading_01_96x96,
@@ -249,7 +276,7 @@ void SysInit_Loading(void *pvParameters)
                 i = 0;
             }
         }
-        
+
         if(xQueueReceive(xQueue_Info, &p, 0))
         {
             String str(p);
@@ -286,7 +313,10 @@ void SysInit_Loading(void *pvParameters)
                 Info.pushCanvas(0, kPosy, UPDATE_MODE_DU);
             }
         }
-    } 
+    }
+
+    Serial.print("SysInit - load - task - finish");
+
     vTaskDelete(NULL);
 }
 

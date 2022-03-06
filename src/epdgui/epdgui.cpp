@@ -16,11 +16,7 @@ std::stack <Frame_Base*> frame_stack;
 std::map<String, frame_struct_t> frame_map;
 uint8_t frame_switch_count = 0;
 bool _is_auto_update = true;
-
-uint16_t _is_last_finger_up = 0xFFFF;
 uint16_t _last_pos_x = 0xFFFF, _last_pos_y = 0xFFFF;
-
-uint32_t g_last_active_time_millis = 0;
 
 void EPDGUI_AddObject(EPDGUI_Base* object)
 {
@@ -92,7 +88,7 @@ void EPDGUI_Run(Frame_Base* frame)
         if((frame->isRun() == 0) || (frame->run() == 0))
         {
             frame->exit();
-            M5.EPD.Clear(true);
+            // M5.EPD.Clear();
             log_d("Exit %s", frame->GetFrameName().c_str());
             if(wait_for_delete != NULL)
             {
@@ -106,16 +102,11 @@ void EPDGUI_Run(Frame_Base* frame)
         if (M5.TP.avaliable())
         {
             M5.TP.update();
-            uint16_t is_finger_up = M5.TP.isFingerUp() ? 1 : 0;
-            uint16_t pos_x = M5.TP.readFingerX(0);
-            uint16_t pos_y = M5.TP.readFingerY(0);
-            // Avoid duplicate events
-            if (_is_last_finger_up != is_finger_up || _last_pos_x != pos_x || _last_pos_y != pos_y)
+            bool is_finger_up = M5.TP.isFingerUp();
+            if(is_finger_up || (_last_pos_x != M5.TP.readFingerX(0)) || (_last_pos_y != M5.TP.readFingerY(0)))
             {
-                EPDGUI_UpdateGlobalLastActiveTime();
-                _last_pos_x = pos_x;
-                _last_pos_y = pos_y;
-                _is_last_finger_up = is_finger_up;
+                _last_pos_x = M5.TP.readFingerX(0);
+                _last_pos_y = M5.TP.readFingerY(0);
                 if(is_finger_up)
                 {
                     EPDGUI_Process();
@@ -123,7 +114,7 @@ void EPDGUI_Run(Frame_Base* frame)
                 }
                 else
                 {
-                    EPDGUI_Process(pos_x, pos_y);
+                    EPDGUI_Process(M5.TP.readFingerX(0), M5.TP.readFingerY(0));
                     last_active_time = 0;
                 }
             }
@@ -153,6 +144,10 @@ void EPDGUI_MainLoop(void)
     {
         Frame_Base *frame = frame_stack.top();
         log_d("Run %s", frame->GetFrameName().c_str());
+        Serial.print("Frame ID: ");
+        uint32_t temp32 = frame->GetFrameID();
+        Serial.print((uint8_t)temp32);
+        //setGlobalLastFrame(frame->GetFrameID)
         EPDGUI_Clear();
         _is_auto_update = true;
         frame->init(frame_map[frame->GetFrameName()].args);
@@ -219,10 +214,4 @@ void EPDGUI_OverwriteFrame(Frame_Base* frame)
 void EPDGUI_SetAutoUpdate(bool isAuto)
 {
     _is_auto_update = isAuto;
-}
-
-/// Update active time to avoid power saving
-void EPDGUI_UpdateGlobalLastActiveTime()
-{
-    g_last_active_time_millis = millis();
 }

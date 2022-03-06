@@ -8,6 +8,7 @@ void setup()
     pinMode(M5EPD_MAIN_PWR_PIN, OUTPUT);
     M5.enableMainPower();
 
+
     SysInit_Start();
 }
 

@@ -7,6 +7,7 @@
 #include "frame_fileindex.h"
 #include "frame_compare.h"
 #include "frame_home.h"
+#include "frame_weather.h"
 
 enum
 {
@@ -17,11 +18,15 @@ enum
     kKeySDFile,
     kKeyCompare,
     kKeyHome,
-    kKeyLifeGame
+    kKeyLifeGame,
+    kKeyWeather
+
 };
 
 #define KEY_W 92
 #define KEY_H 92
+
+#define MENU_ITEMS 9
 
 void key_setting_cb(epdgui_args_vector_t &args)
 {
@@ -114,6 +119,18 @@ void key_home_cb(epdgui_args_vector_t &args)
     *((int*)(args[0])) = 0;
 }
 
+void key_weather_cb(epdgui_args_vector_t &args)
+{
+    Frame_Base *frame = EPDGUI_GetFrame("Frame_Weather");
+    if(frame == NULL)
+    {
+        frame = new Frame_Weather();
+        EPDGUI_AddFrame("Frame_Weather", frame);
+    }
+    EPDGUI_PushFrame(frame);
+    *((int*)(args[0])) = 0;
+}
+
 
 Frame_Main::Frame_Main(void): Frame_Base(false)
 {
@@ -127,7 +144,7 @@ Frame_Main::Frame_Main(void): Frame_Base(false)
     _names = new M5EPD_Canvas(&M5.EPD);
     _names->createCanvas(540, 32);
     _names->setTextDatum(CC_DATUM);
-    
+
     for(int i = 0; i < 4; i++)
     {
         _key[i] = new EPDGUI_Button("测试", 20 + i * 136, 90, KEY_W, KEY_H);
@@ -137,6 +154,13 @@ Frame_Main::Frame_Main(void): Frame_Base(false)
     {
         _key[i + 4] = new EPDGUI_Button("测试", 20 + i * 136, 240, KEY_W, KEY_H);
     }
+
+    for(int i = 0; i < MENU_ITEMS-8; i++)
+    {
+        _key[i + 8] = new EPDGUI_Button("测试", 20 + i * 136, 390, KEY_W, KEY_H);
+    }
+
+    //_key[8] = new EPDGUI_Button("测试", 20 , 390, KEY_W, KEY_H);
 
     _key[kKeySetting]->CanvasNormal()->pushImage(0, 0, 92, 92, ImageResource_main_icon_setting_92x92);
     *(_key[kKeySetting]->CanvasPressed()) = *(_key[kKeySetting]->CanvasNormal());
@@ -186,6 +210,12 @@ Frame_Main::Frame_Main(void): Frame_Base(false)
     _key[kKeyHome]->AddArgs(EPDGUI_Button::EVENT_RELEASED, 0, (void*)(&_is_run));
     _key[kKeyHome]->Bind(EPDGUI_Button::EVENT_RELEASED, key_home_cb);
 
+    _key[kKeyWeather]->CanvasNormal()->pushImage(0, 0, 92, 92, ImageResource_main_icon_weather_92x92);
+    *(_key[kKeyWeather]->CanvasPressed()) = *(_key[kKeyWeather]->CanvasNormal());
+    _key[kKeyWeather]->CanvasPressed()->ReverseColor();
+    _key[kKeyWeather]->AddArgs(EPDGUI_Button::EVENT_RELEASED, 0, (void*)(&_is_run));
+    _key[kKeyWeather]->Bind(EPDGUI_Button::EVENT_RELEASED, key_weather_cb);
+
     _time = 0;
     _next_update_time = 0;
 }
@@ -193,7 +223,7 @@ Frame_Main::Frame_Main(void): Frame_Base(false)
 
 Frame_Main::~Frame_Main(void)
 {
-    for(int i = 0; i < 8; i++)
+    for(int i = 0; i < MENU_ITEMS; i++)
     {
         delete _key[i];
     }
@@ -228,7 +258,7 @@ void Frame_Main::AppName(m5epd_update_mode_t mode)
         _names->drawString("Keyboard", 20 + 46 + 2 * 136, 16);
     }
     _names->pushCanvas(0, 186, mode);
-    
+
     _names->fillCanvas(0);
     if(language == LANGUAGE_JA)
     {
@@ -252,19 +282,34 @@ void Frame_Main::AppName(m5epd_update_mode_t mode)
         _names->drawString("LifeGame", 20 + 46 + 3 * 136, 16);
     }
     _names->pushCanvas(0, 337, mode);
+
+    _names->fillCanvas(0);
+    _names->drawString("Weather", 20 + 46, 16);
+    _names->pushCanvas(0, 448 + 46, mode);
 }
 
 void Frame_Main::StatusBar(m5epd_update_mode_t mode)
 {
+
     if((millis() - _time) < _next_update_time)
     {
         return;
     }
+
+    // Time
+    rtc_time_t time_struct;
+    rtc_date_t date_struct;
+    M5.RTC.getTime(&time_struct);
+    M5.RTC.getDate(&date_struct);
+
     char buf[20];
     _bar->fillCanvas(0);
     _bar->drawFastHLine(0, 43, 540, 15);
     _bar->setTextDatum(CL_DATUM);
-    _bar->drawString("M5Paper", 10, 27);
+    // RTC
+    sprintf(buf, "%04d - %02d - %02d", date_struct.year, date_struct.mon, date_struct.day);
+    _bar->drawString(buf, 10, 27);
+    //_bar->drawString("M5Paper", 10, 27);
 
     // Battery
     _bar->setTextDatum(CR_DATUM);
@@ -290,15 +335,11 @@ void Frame_Main::StatusBar(m5epd_update_mode_t mode)
     }
     uint8_t px = battery * 25;
     sprintf(buf, "%d%%", (int)(battery * 100));
-    // _bar->drawString(buf, 498 - 10, 27);
+    _bar->drawString(buf, 498 - 10, 27);
     _bar->fillRect(498 + 3, 8 + 10, px, 13, 15);
     // _bar->pushImage(498, 8, 32, 32, 2, ImageResource_status_bar_battery_charging_32x32);
 
-    // Time
-    rtc_time_t time_struct;
-    rtc_date_t date_struct;
-    M5.RTC.getTime(&time_struct);
-    M5.RTC.getDate(&date_struct);
+
     sprintf(buf, "%2d:%02d", time_struct.hour, time_struct.min);
     _bar->setTextDatum(CC_DATUM);
     _bar->drawString(buf, 270, 27);
@@ -313,7 +354,7 @@ int Frame_Main::init(epdgui_args_vector_t &args)
 {
     _is_run = 1;
     M5.EPD.WriteFullGram4bpp(GetWallpaper());
-    for(int i = 0; i < 8; i++)
+    for(int i = 0; i < MENU_ITEMS; i++)
     {
         EPDGUI_AddObject(_key[i]);
     }
@@ -326,7 +367,6 @@ int Frame_Main::init(epdgui_args_vector_t &args)
 
 int Frame_Main::run()
 {
-    Frame_Base::run();
     StatusBar(UPDATE_MODE_GL16);
     return 1;
 }

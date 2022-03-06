@@ -78,11 +78,11 @@ Frame_Keyboard::Frame_Keyboard(bool isHorizontal) : Frame_Base()
         key_textsize_reset = new EPDGUI_Button("26", 360, kKeyBaseY, 88, 52);
         key_textsize_minus = new EPDGUI_Button("-", 272, kKeyBaseY, 88, 52);
     }
-    
+
     inputbox->SetState(EPDGUI_Textbox::EVENT_PRESSED);
 
     keyboard = new EPDGUI_Keyboard(isHorizontal);
-    
+
     key_textclear->AddArgs(EPDGUI_Button::EVENT_RELEASED, 0, (void*)inputbox);
     key_textclear->Bind(EPDGUI_Button::EVENT_RELEASED, key_textclear_cb);
     key_textsize_plus->AddArgs(EPDGUI_Button::EVENT_RELEASED, 0, (void*)inputbox);
@@ -110,7 +110,7 @@ Frame_Keyboard::Frame_Keyboard(bool isHorizontal) : Frame_Base()
         exitbtn("Home");
         _canvas_title->drawString("Keyboard", 270, 34);
     }
-    
+
     _key_exit->AddArgs(EPDGUI_Button::EVENT_RELEASED, 0, (void*)(&_is_run));
     _key_exit->Bind(EPDGUI_Button::EVENT_RELEASED, &Frame_Base::exit_cb);
 }
@@ -142,7 +142,6 @@ int Frame_Keyboard::init(epdgui_args_vector_t &args)
 
 int Frame_Keyboard::run(void)
 {
-    Frame_Base::run();
     inputbox->AddText(keyboard->getData());
     return 1;
 }
