@@ -5,6 +5,10 @@ Frame_Weather::Frame_Weather(void)
     _frame_name = "Frame_Weather";
     _frame_id = 8;
 
+    _weatherScreen = new M5EPD_Canvas(&M5.EPD);
+    _weatherScreen->createCanvas(540, 875);
+    _weatherScreen->setTextSize(26);
+
     //M5EPD_Canvas canvas_temp(&M5.EPD);
     //canvas_temp.createRender(36);
     uint8_t language = GetLanguage();
@@ -31,9 +35,7 @@ Frame_Weather::Frame_Weather(void)
     }
 
 
-    _weatherScreen = new M5EPD_Canvas(&M5.EPD);
-    _weatherScreen->createCanvas(540, 875);
-    _weatherScreen->setTextSize(26);
+
 
     //_weatherScreen->drawFastHLine(0, 43, 540, 15);
 
